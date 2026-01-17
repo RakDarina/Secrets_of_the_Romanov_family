@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Runner: Slavic Edition</title>
+    <style>
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #202028;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent; /* Убирает синий квадрат при нажатии на iOS */
+        }
+        #game-container {
+            position: relative; width: 100%; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: #000;
+        }
+        canvas { display: block; image-rendering: pixelated; max-width: 100%; max-height: 100%; }
+        
+        /* Интерфейс */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10; color: white; text-align: center;
+        }
+        h1 { margin-bottom: 10px; font-size: 22px; color: #ffcc00; text-transform: uppercase; letter-spacing: 2px; }
+        p { margin-top: 0; color: #aaa; font-size: 12px; margin-bottom: 20px;}
+
+        .char-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+            max-height: 65vh; overflow-y: auto; padding: 10px;
+            width: 90%; max-width: 400px;
+        }
+        .char-btn {
+            background: #333; border: 2px solid #555; padding: 8px;
+            cursor: pointer; border-radius: 8px; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .char-btn:active { transform: scale(0.95); background: #555; border-color: #ffcc00; }
+        
+        .char-btn-img-box {
+            width: 40px; height: 40px; overflow: hidden; margin-bottom: 5px; position: relative;
+        }
+        .char-btn img {
+             position: absolute; top: 0; left: 0;
+             height: 100%; image-rendering: pixelated;
+        }
+        .char-btn span { font-size: 13px; font-weight: bold; }
+
+        #score {
+            position: absolute; top: 15px; right: 20px;
+            color: white; font-size: 24px; font-weight: bold; z-index: 5;
+            text-shadow: 2px 2px 0 #000; display: none;
+        }
+        #restart-btn {
+            margin-top: 20px; padding: 15px 40px; font-size: 18px;
+            background: #ffcc00; border: none; color: #000; border-radius: 5px;
+            font-weight: bold; cursor: pointer; display: none;
+            box-shadow: 0 4px 0 #b38f00;
+        }
+        #restart-btn:active { transform: translateY(4px); box-shadow: none; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="score">00000</div>
+        
+        <div id="ui-layer">
+            <h1 id="menu-title">Славянский Забег</h1>
+            <p id="menu-subtitle">Выбери героя, чтобы начать</p>
+            <div class="char-grid" id="char-selection"></div>
+            <button id="restart-btn" onclick="resetGame()">ИГРАТЬ СНОВА</button>
+        </div>
+    </div>
+    
+    <div style="display:none;">
+        <img id="bg-img" src="bg.png">
+    </div>
+
+<script>
+    // --- ЗВУКИ ---
+    // Создаем объекты аудио
+    const soundMusic = new Audio('music.mp3');
+    const soundJump = new Audio('jump.mp3');
+    const soundDie = new Audio('die.mp3');
+
+    // Настройки звука
+    soundMusic.loop = true; // Музыка играет по кругу
+    soundMusic.volume = 0.4; // Громкость фона (40%)
+    soundJump.volume = 0.6;
+    soundDie.volume = 0.8;
+
+    // --- КОНФИГУРАЦИЯ ПЕРСОНАЖЕЙ ---
+    const characters = [
+        { id: 'eva', name: 'Ева', src: 'eva.png', obs: 'eva_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
+        { id: 'volodya', name: 'Володя', src: 'volodya.png', obs: 'volodya_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
+        { id: 'gavriil', name: 'Гавриил', src: 'gavriil.png', obs: 'gm_obs.png', cols: 3, rows: 3, runRow: 0, jumpRow: 2 },
+        { id: 'kvek', name: 'Квек', src: 'kvek.png', obs: 'volodya_obs.png', cols: 3, rows: 3, runRow: 0, jumpRow: 2 },
+        { id: 'fedor', name: 'Федор', src: 'fedor.png', obs: 'volodya_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
+        { id: 'mikhail', name: 'Михаил', src: 'mikhail.png', obs: 'gm_obs.png', cols: 3, rows: 3, runRow: 0, jumpRow: 2 },
+        // Заглушка для Георгия (замени на реальный файл, если есть)
+        { id: 'georgiy', name: 'Георгий', src: 'georgiy.png', obs: 'georgiy_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const uiLayer = document.getElementById('ui-layer');
+    const charGrid = document.getElementById('char-selection');
+    const restartBtn = document.getElementById('restart-btn');
+    const menuTitle = document.getElementById('menu-title');
+    const menuSubtitle = document.getElementById('menu-subtitle');
+    const scoreEl = document.getElementById('score');
+
+    let gameSpeed = 6; let gravity = 0.6; let score = 0;
+    let isGameOver = false; let isPlaying = false;
+    
+    let player = {
+        y: 0, velocityY: 0, state: 'running',
+        width: 70, height: 70,
+        sprite: new Image(), frameIndex: 0, animTimer: 0,
+        cols: 3, rows: 2, runRow: 0, jumpRow: 1
+    };
+
+    let obstacles = []; let obstacleImg = new Image();
+    let bgImg = document.getElementById('bg-img'); let bgX = 0;
+    let groundY;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        groundY = canvas.height - 100;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function initMenu() {
+        charGrid.innerHTML = '';
+        characters.forEach(char => {
+            let btn = document.createElement('div');
+            btn.className = 'char-btn';
+            btn.innerHTML = `<div class="char-btn-img-box"><img src="${char.src}"></div><span>${char.name}</span>`;
+            btn.onclick = () => startGame(char);
+            charGrid.appendChild(btn);
+        });
+    }
+
+    function startGame(charData) {
+        // Запуск музыки (браузер разрешает это, так как был клик)
+        soundMusic.currentTime = 0;
+        soundMusic.play().catch(e => console.log("Автоплей заблокирован браузером"));
+
+        player.sprite.src = charData.src;
+        player.cols = charData.cols;
+        player.rows = charData.rows;
+        player.runRow = charData.runRow;
+        player.jumpRow = charData.jumpRow;
+        obstacleImg.src = charData.obs;
+
+        player.y = groundY - player.height;
+        player.velocityY = 0;
+        player.state = 'running';
+        obstacles = []; score = 0; gameSpeed = 6; isGameOver = false; isPlaying = true;
+
+        uiLayer.style.display = 'none'; 
+        restartBtn.style.display = 'none'; 
+        charGrid.style.display = 'none';
+        scoreEl.style.display = 'block';
+        
+        loop();
+    }
+
+    function resetGame() {
+        // Останавливаем звук проигрыша, если он еще идет
+        soundDie.pause();
+        soundDie.currentTime = 0;
+
+        uiLayer.style.display = 'flex'; charGrid.style.display = 'grid';
+        menuTitle.innerText = "Славянский Забег"; 
+        menuTitle.style.color = "#ffcc00";
+        menuSubtitle.style.display = "block";
+        restartBtn.style.display = 'none';
+    }
+
+    function gameOver() {
+        isGameOver = true; isPlaying = false;
+        
+        // Звуки
+        soundMusic.pause(); // Остановить музыку
+        soundDie.play();    // Звук удара
+
+        uiLayer.style.display = 'flex'; charGrid.style.display = 'none';
+        menuTitle.innerText = "ПОТРАЧЕНО\nСчет: " + Math.floor(score);
+        menuTitle.style.color = "red"; 
+        menuSubtitle.style.display = "none";
+        restartBtn.style.display = 'block';
+    }
+
+    function jump() {
+        if (!isPlaying || isGameOver) return;
+        if (player.state !== 'jumping') {
+            player.velocityY = -14;
+            player.state = 'jumping';
+            player.frameIndex = 0; 
+            player.animTimer = 0;
+            
+            // Звук прыжка
+            soundJump.currentTime = 0; // Сброс, чтобы можно было быстро нажимать
+            soundJump.play();
+        }
+    }
+
+    document.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') jump(); });
+    document.addEventListener('touchstart', (e) => { jump(); e.preventDefault(); }, {passive: false});
+    document.addEventListener('click', jump);
+
+    function loop() {
+        if (!isPlaying) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        score += 0.1; gameSpeed += 0.0015;
+        scoreEl.innerText = Math.floor(score).toString().padStart(5, '0');
+
+        // Фон
+        let bgRatio = bgImg.width / bgImg.height;
+        let bgDrawHeight = canvas.height; let bgDrawWidth = bgDrawHeight * bgRatio;
+        bgX -= gameSpeed * 0.5; if (bgX <= -bgDrawWidth) bgX = 0;
+        ctx.drawImage(bgImg, bgX, 0, bgDrawWidth, bgDrawHeight);
+        ctx.drawImage(bgImg, bgX + bgDrawWidth, 0, bgDrawWidth, bgDrawHeight);
+
+        // Игрок
+        player.velocityY += gravity;
+        player.y += player.velocityY;
+        if (player.y > groundY - player.height) {
+            player.y = groundY - player.height;
+            player.velocityY = 0;
+            if (player.state === 'jumping') {
+                 player.state = 'running';
+                 player.frameIndex = 0;
+            }
+        }
+
+        player.animTimer++;
+        if (player.animTimer > 6) {
+            player.frameIndex++;
+            player.animTimer = 0;
+        }
+
+        let currentRow;
+        if (player.state === 'running') {
+            currentRow = player.runRow;
+            player.frameIndex = player.frameIndex % player.cols;
+        } else {
+            currentRow = player.jumpRow;
+            if (player.frameIndex >= player.cols) player.frameIndex = player.cols - 1;
+        }
+
+        let spriteW = player.sprite.width / player.cols;
+        let spriteH = player.sprite.height / player.rows;
+        let srcX = player.frameIndex * spriteW;
+        let srcY = currentRow * spriteH;
+
+        ctx.drawImage(player.sprite, srcX, srcY, spriteW, spriteH, 50, player.y, player.width, player.height);
+
+        // Препятствия
+        if (Math.random() < 0.015 && obstacles.length < 2) {
+             let lastObs = obstacles[obstacles.length - 1];
+             if (!lastObs || (canvas.width - lastObs.x > 400)) { // Увеличил дистанцию для честности
+                obstacles.push({ x: canvas.width, y: groundY - 55, w: 55, h: 55 });
+             }
+        }
+        for (let i = 0; i < obstacles.length; i++) {
+            let obs = obstacles[i]; obs.x -= gameSpeed;
+            ctx.drawImage(obstacleImg, obs.x, obs.y, obs.w, obs.h);
+            
+            if (50 < obs.x + obs.w - 20 && 50 + player.width - 20 > obs.x &&
+                player.y < obs.y + obs.h - 15 && player.y + player.height - 10 > obs.y) {
+                gameOver();
+            }
+            if (obs.x + obs.w < 0) { obstacles.shift(); i--; }
+        }
+
+        if (!isGameOver) requestAnimationFrame(loop);
+    }
+    initMenu();
+</script>
+</body>
+</html>
