@@ -375,9 +375,11 @@
                 
                 // Размеры отображения персонажа (адекватно экрану)
                 // Исходник 3000x2000. Кадр 1000x1000.
-                this.height = canvasHeight * 0.25; // 25% от высоты экрана
-                if (this.height > 200) this.height = 200; // Макс 200px
-                this.width = this.height; // Квадратный спрайт
+               // Было 0.25 (25% высоты экрана), теперь 0.5 (50%)
+this.height = canvasHeight * 0.5; 
+// Ограничение по максимальному размеру тоже увеличим, чтобы на ПК не было мелко
+if (this.height > 400) this.height = 400; 
+this.width = this.height; // Оставляем квадратным
 
                 this.x = 100;
                 this.y = canvasHeight - groundHeight - this.height;
@@ -386,9 +388,10 @@
 // Настройки физики (усиленные)
 this.dy = 0;
 // Мы увеличили коэффициент с 0.027 до 0.035 для более высокого прыжка
-this.jumpForce = canvasHeight * 0.035; 
-// Мы увеличили гравитацию с 0.0015 до 0.0018, чтобы персонаж быстрее возвращался вниз
-this.gravity = canvasHeight * 0.0018; 
+// Увеличиваем силу прыжка, чтобы соответствовать новым размерам
+this.jumpForce = canvasHeight * 0.05; 
+// Гравитацию тоже чуть поднимем, чтобы персонаж не был "ватным"
+this.gravity = canvasHeight * 0.0022;
 this.originalY = this.y;
 this.isJumping = false;
 
@@ -454,9 +457,10 @@ this.isJumping = false;
                 this.img.src = imgSrc;
                 
                 // Размеры препятствия чуть меньше игрока
-                this.height = canvasHeight * 0.15; 
-                if (this.height > 120) this.height = 120;
-                this.width = this.height;
+                // Было 0.15, теперь 0.3 (30% высоты экрана)
+this.height = canvasHeight * 0.3; 
+if (this.height > 240) this.height = 240;
+this.width = this.height;
 
                 this.x = canvasWidth;
                 this.y = canvasHeight - groundHeight - this.height + 10; // +10 чтобы чуть "утопить" в землю
