@@ -11,7 +11,7 @@
             overflow: hidden;
             background-color: #f0f0f0;
             font-family: 'Arial', sans-serif;
-            touch-action: manipulation; /* Улучшает отклик на телефоне */
+            touch-action: manipulation;
         }
         canvas {
             display: block;
@@ -24,7 +24,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Чтобы клики проходили сквозь слой UI во время игры */
+            pointer-events: none;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -35,7 +35,7 @@
             border-radius: 15px;
             text-align: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            pointer-events: auto; /* Включаем клики для меню */
+            pointer-events: auto;
             max-width: 90%;
             max-height: 90%;
             overflow-y: auto;
@@ -64,7 +64,6 @@
             width: 50px;
             height: 50px;
             object-fit: cover;
-            /* Показываем только первый кадр спрайта */
             object-position: 0 0; 
         }
         .char-btn:hover, .char-btn.selected {
@@ -103,8 +102,7 @@
     <div id="ui-layer">
         <div id="start-screen" class="menu-box">
             <h1>Выберите героя</h1>
-            <div class="char-select" id="char-list">
-                </div>
+            <div class="char-select" id="char-list"></div>
             <button class="start-btn" onclick="startGame()">ИГРАТЬ</button>
             <p style="font-size: 12px; color: #666;">ПК: Пробел/Мышь | Телефон: Тап по экрану</p>
         </div>
@@ -118,13 +116,10 @@
     </div>
 
     <script>
-        // --- 1. НАСТРОЙКИ И ДАННЫЕ ---
-        
-        // Данные персонажей и их препятствий (согласно вашему списку)
         const characters = [
             { id: 'eva', name: 'Ева', file: 'eva.png', obsFile: 'eva_obs.png', obsName: 'Тюрьма' },
             { id: 'master', name: 'Мастер', file: 'master.png', obsFile: 'eva_obs.png', obsName: 'Тюрьма' },
-            { id: 'fedor', name: 'Федор', file: 'fedor.png', obsFile: 'volodya_obs.png', obsName: 'Ладан' }, // Или любой другой по скрину
+            { id: 'fedor', name: 'Федор', file: 'fedor.png', obsFile: 'volodya_obs.png', obsName: 'Ладан' },
             { id: 'volodya', name: 'Володя', file: 'volodya.png', obsFile: 'volodya_obs.png', obsName: 'Чеснок' },
             { id: 'georgiy', name: 'Георгий-А.', file: 'georgiy.png', obsFile: 'georgiy_obs.png', obsName: 'Картинка 10' },
             { id: 'kvek', name: 'Квек', file: 'kvek.png', obsFile: 'volodya_obs.png', obsName: 'Ладан' },
@@ -132,7 +127,6 @@
             { id: 'mikhail', name: 'Михаил', file: 'mikhail.png', obsFile: 'gm_obs.png', obsName: 'Объект Г.М.' }
         ];
 
-        // Аудио
         const sounds = {
             bg: new Audio('bg_music.mp3'),
             jump: new Audio('jump.mp3'),
@@ -140,7 +134,6 @@
         };
         sounds.bg.loop = true;
 
-        // --- 2. ИНИЦИАЛИЗАЦИЯ CANVAS ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
@@ -150,43 +143,37 @@
             height = window.innerHeight;
             canvas.width = width;
             canvas.height = height;
-            groundY = height - 150; // Уровень земли
+            groundY = height - 150;
         }
         window.addEventListener('resize', resize);
         
-        // Переменные игры
         let gameRunning = false;
         let score = 0;
         let gameSpeed = 5;
         let groundY;
         let selectedCharIndex = 0;
         let frameCount = 0;
+        let bgX = 0; // Переменная для позиции фона
 
-        // Изображения
         const bgImage = new Image(); bgImage.src = 'background.png';
         let playerImg = new Image();
         let obsImg = new Image();
 
-        // --- 3. ИГРОВЫЕ ОБЪЕКТЫ ---
-
         const player = {
             x: 50,
             y: 0,
-            w: 80, // Размер отображения на экране (можно менять)
+            w: 80,
             h: 80, 
             dy: 0,
             jumpPower: -15,
             gravity: 0.8,
             grounded: false,
-            // Анимация
-            frameX: 0, // Текущий кадр (0-2)
-            action: 0, // 0 = бег (верхний ряд), 1 = прыжок (нижний ряд)
+            frameX: 0,
+            action: 0,
             timer: 0
         };
 
         const obstacles = [];
-
-        // --- 4. ЛОГИКА ИГРЫ ---
 
         function initMenu() {
             const list = document.getElementById('char-list');
@@ -194,13 +181,11 @@
                 const btn = document.createElement('div');
                 btn.className = 'char-btn' + (index === 0 ? ' selected' : '');
                 btn.onclick = () => selectCharacter(index, btn);
-                
-                // Предпросмотр (фон кнопки - спрайт персонажа, показываем левый верхний угол)
                 btn.innerHTML = `
                     <div style="
                         width: 50px; height: 50px; 
                         background: url('${char.file}') no-repeat; 
-                        background-size: 150px 100px; /* Масштабируем спрайт для иконки */
+                        background-size: 150px 100px;
                         background-position: 0 0;
                     "></div>
                     <span style="font-size:12px">${char.name}</span>
@@ -212,18 +197,15 @@
 
         function selectCharacter(index, btnElement) {
             selectedCharIndex = index;
-            // Обновляем визуальное выделение
             document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('selected'));
             btnElement.classList.add('selected');
         }
 
         function startGame() {
-            // Загрузка ресурсов выбранного персонажа
             const charData = characters[selectedCharIndex];
             playerImg.src = charData.file;
             obsImg.src = charData.obsFile;
 
-            // Сброс параметров
             document.getElementById('start-screen').classList.add('hidden');
             document.getElementById('game-over-screen').classList.add('hidden');
             document.getElementById('score-board').style.display = 'block';
@@ -231,11 +213,11 @@
             gameRunning = true;
             score = 0;
             gameSpeed = 6;
-            obstacles.length = 0; // Очистить препятствия
+            bgX = 0; // Сброс позиции фона
+            obstacles.length = 0;
             player.y = groundY - player.h;
             player.dy = 0;
             
-            // Запуск музыки (нужно действие пользователя, клик уже был)
             sounds.bg.currentTime = 0;
             sounds.bg.play().catch(e => console.log("Audio play failed", e));
             
@@ -243,7 +225,7 @@
         }
 
         function spawnObstacle() {
-            const size = 70; // Размер препятствия на экране
+            const size = 70;
             obstacles.push({
                 x: width,
                 y: groundY - size,
@@ -254,17 +236,19 @@
         }
 
         function update() {
-            // Усложнение игры
+            // Движение фона (0.5 - коэффициент скорости для параллакса)
+            bgX -= gameSpeed * 0.5;
+            if (bgX <= -width) bgX = 0;
+
             gameSpeed += 0.003;
             score++;
             document.getElementById('score-board').innerText = "Счет: " + Math.floor(score / 10);
 
-            // Физика игрока
             if (keys['Space'] || keys['Click']) {
                 if (player.grounded) {
                     player.dy = player.jumpPower;
                     player.grounded = false;
-                    player.action = 1; // Прыжок (нижний ряд)
+                    player.action = 1;
                     sounds.jump.currentTime = 0;
                     sounds.jump.play();
                 }
@@ -279,19 +263,16 @@
                 player.dy = 0;
                 player.grounded = true;
                 player.y = groundY - player.h;
-                player.action = 0; // Бег (верхний ряд)
+                player.action = 0;
             }
 
-            // Анимация спрайта
             player.timer++;
-            if (player.timer > 10 - Math.min(gameSpeed, 5)) { // Чем быстрее бежит, тем быстрее анимация
+            if (player.timer > 10 - Math.min(gameSpeed, 5)) {
                 player.frameX++;
                 if (player.frameX > 2) player.frameX = 0;
                 player.timer = 0;
             }
 
-            // Препятствия
-            // Случайный спавн (примерно каждые 60-120 кадров)
             if (frameCount % Math.floor(Math.random() * 50 + 80) === 0) {
                 spawnObstacle();
             }
@@ -300,20 +281,17 @@
                 let obs = obstacles[i];
                 obs.x -= gameSpeed;
 
-                // Удаление ушедших препятствий
                 if (obs.x + obs.w < 0) {
                     obstacles.splice(i, 1);
                     i--;
                     continue;
                 }
 
-                // Столкновение (AABB коллизия)
-                // Делаем хитбокс чуть меньше спрайта для честности
                 if (
-                    player.x + 10 < obs.x + obs.w - 10 &&
-                    player.x + player.w - 10 > obs.x + 10 &&
-                    player.y + 10 < obs.y + obs.h - 10 &&
-                    player.y + player.h - 10 > obs.y + 10
+                    player.x + 15 < obs.x + obs.w - 15 &&
+                    player.x + player.w - 15 > obs.x + 15 &&
+                    player.y + 15 < obs.y + obs.h - 15 &&
+                    player.y + player.h - 15 > obs.y + 15
                 ) {
                     gameOver();
                 }
@@ -324,10 +302,10 @@
         function draw() {
             ctx.clearRect(0, 0, width, height);
 
-            // Фон (простой параллакс или заливка + пол)
-            ctx.drawImage(bgImage, 0, 0, width, height); // Если есть картинка
+            // Отрисовка зацикленного фона
+            ctx.drawImage(bgImage, bgX, 0, width, height);
+            ctx.drawImage(bgImage, bgX + width, 0, width, height);
             
-            // Рисуем землю (линия)
             ctx.beginPath();
             ctx.moveTo(0, groundY);
             ctx.lineTo(width, groundY);
@@ -335,24 +313,16 @@
             ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Рисуем игрока
-            // Спрайтшит: 300x200. Кадр: 100x100.
-            // Ряд 0 (верх) - бег, Ряд 1 (низ) - прыжок (или наоборот, как указано в ТЗ: сверху бег, снизу прыжок)
-            // sy (source y) = player.action * 100
-            // sx (source x) = player.frameX * 100
-            
-            // Если персонаж в прыжке, фиксируем кадр (например, 2-й в нижнем ряду) или анимируем
             let spriteRow = player.grounded ? 0 : 1; 
             
             ctx.drawImage(
                 playerImg, 
-                player.frameX * 100, spriteRow * 100, // Откуда вырезать (x, y)
-                100, 100,                             // Размер вырезки
-                player.x, player.y,                   // Куда рисовать
-                player.w, player.h                    // Размер на экране
+                player.frameX * 100, spriteRow * 100,
+                100, 100,
+                player.x, player.y,
+                player.w, player.h
             );
 
-            // Рисуем препятствия
             for (let obs of obstacles) {
                 ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
             }
@@ -382,11 +352,8 @@
             startGame();
         }
 
-        // --- 5. УПРАВЛЕНИЕ ---
-        
         const keys = {};
 
-        // ПК
         window.addEventListener('keydown', e => {
             if (e.code === 'Space') keys['Space'] = true;
         });
@@ -396,23 +363,19 @@
         window.addEventListener('mousedown', () => keys['Click'] = true);
         window.addEventListener('mouseup', () => keys['Click'] = false);
 
-        // Телефон
         window.addEventListener('touchstart', (e) => {
-            keys['Click'] = true; // Считаем тап как клик
+            keys['Click'] = true;
         }, {passive: false});
         
         window.addEventListener('touchend', (e) => {
             keys['Click'] = false;
         });
 
-        // Блокировка прокрутки пробелом
         window.onkeydown = function(e) { 
             return !(e.keyCode == 32); 
         };
 
-        // Старт
         initMenu();
-
     </script>
 </body>
 </html>
