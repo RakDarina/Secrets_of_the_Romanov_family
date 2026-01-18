@@ -8,17 +8,16 @@
         body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Arial', sans-serif; touch-action: manipulation; }
         canvas { 
             display: block; 
-            width: 100%; 
-            height: 100%; 
-            image-rendering: pixelated; /* Четкий фон и персонажи */
-            image-rendering: crisp-edges;
+            width: 100%; height: 100%; 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges; 
         }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; justify-content: center; align-items: center; }
-        .menu-box { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: auto; }
+        .menu-box { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 20px; text-align: center; pointer-events: auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .char-select { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px; }
-        .char-btn { border: 3px solid #ccc; border-radius: 12px; padding: 10px; cursor: pointer; background: white; width: 90px; }
-        .char-btn.selected { border-color: #4CAF50; background-color: #e8f5e9; }
-        button { padding: 15px 30px; font-size: 18px; border-radius: 50px; border: none; cursor: pointer; font-weight: bold; }
+        .char-btn { border: 3px solid #ccc; border-radius: 12px; padding: 10px; cursor: pointer; width: 90px; background: white; transition: 0.2s; }
+        .char-btn.selected { border-color: #4CAF50; background-color: #e8f5e9; transform: scale(1.05); }
+        button { padding: 15px 30px; font-size: 18px; border-radius: 50px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .start-btn { background-color: #4CAF50; color: white; }
         .menu-btn { background-color: #2196F3; color: white; margin-top: 10px; }
         #score-board { position: absolute; top: 20px; right: 20px; font-size: 28px; font-weight: bold; color: #fff; text-shadow: 2px 2px 4px #000; display: none; }
@@ -32,14 +31,13 @@
 
     <div id="ui-layer">
         <div id="start-screen" class="menu-box">
-            <h1>Зимнее приключение</h1>
+            <h1>Зимний Побег</h1>
             <div class="char-select" id="char-list"></div>
             <button class="start-btn" onclick="startGame()">ИГРАТЬ</button>
         </div>
-
         <div id="game-over-screen" class="menu-box hidden">
             <h1>Игра окончена</h1>
-            <p>Счет: <span id="final-score">0</span></p>
+            <p>Ваш счет: <span id="final-score">0</span></p>
             <button class="start-btn" onclick="resetGame()">Заново</button><br>
             <button class="menu-btn" onclick="backToMenu()">Сменить героя</button>
         </div>
@@ -72,14 +70,13 @@
         }
         window.addEventListener('resize', resize);
         
-        let gameRunning = false;
-        let score = 0, gameSpeed = 7, selectedCharIndex = 0, frameCount = 0, bgX = 0;
+        let gameRunning = false, score = 0, gameSpeed = 7, selectedCharIndex = 0, frameCount = 0, bgX = 0;
         const bgImage = new Image(); bgImage.src = 'background.png';
         let playerImg = new Image(), obsImg = new Image();
 
         const player = {
             x: 80, y: 0, w: 220, h: 220, dy: 0,
-            jumpPower: -28, gravity: 1.0, grounded: false,
+            jumpPower: -28, gravity: 1.2, grounded: false,
             frameX: 0, frameY: 0, timer: 0
         };
 
@@ -91,17 +88,11 @@
             characters.forEach((char, index) => {
                 const btn = document.createElement('div');
                 btn.className = 'char-btn' + (index === selectedCharIndex ? ' selected' : '');
-                btn.onclick = () => selectCharacter(index, btn);
+                btn.onclick = () => { selectedCharIndex = index; initMenu(); };
                 btn.innerHTML = `<div style="width:50px; height:50px; margin: 0 auto; background: url('${char.file}') no-repeat; background-size: 150px 100px; background-position: 0 0; image-rendering: pixelated;"></div><span>${char.name}</span>`;
                 list.appendChild(btn);
             });
             resize();
-        }
-
-        function selectCharacter(index, btnElement) {
-            selectedCharIndex = index;
-            document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('selected'));
-            btnElement.classList.add('selected');
         }
 
         function startGame() {
@@ -116,18 +107,8 @@
             loop();
         }
 
-        function backToMenu() {
-            gameRunning = false; sounds.bg.pause();
-            document.getElementById('game-over-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-            document.getElementById('score-board').style.display = 'none';
-        }
-
         function spawnObstacle() {
-            if (obstacles.length > 0) {
-                const last = obstacles[obstacles.length - 1];
-                if (width - last.x < 550) return; 
-            }
+            if (obstacles.length > 0 && width - obstacles[obstacles.length-1].x < 600) return;
             const size = 180; 
             obstacles.push({ x: width, y: groundY - size, w: size, h: size });
         }
@@ -151,25 +132,20 @@
                 player.dy = 0; player.grounded = true; player.y = groundY - player.h;
             }
 
-            // ЛОГИКА АНИМАЦИИ
+            // ЛОГИКА АНИМАЦИИ: 2 РЯДА
             if (player.grounded) {
-                player.frameY = 0; // Верхний ряд (Бег)
+                player.frameY = 0; // ВЕРХНИЙ РЯД (БЕГ)
                 player.timer++;
-                if (player.timer > 8) {
+                if (player.timer > 7) {
                     player.frameX++; 
                     if (player.frameX > 2) player.frameX = 0; 
                     player.timer = 0;
                 }
             } else {
-                player.frameY = 1; // Нижний ряд (Прыжок)
-                // Выбор кадра в зависимости от вертикальной скорости dy
-                if (player.dy < -5) {
-                    player.frameX = 0; // Взлет
-                } else if (player.dy >= -5 && player.dy <= 5) {
-                    player.frameX = 1; // Пик прыжка (в воздухе)
-                } else {
-                    player.frameX = 2; // Падение / Приземление
-                }
+                player.frameY = 1; // НИЖНИЙ РЯД (ПРЫЖОК)
+                if (player.dy < -5) player.frameX = 0;      // Взлет (кадр 1 снизу)
+                else if (Math.abs(player.dy) <= 5) player.frameX = 1; // Пик (кадр 2 снизу)
+                else player.frameX = 2;                     // Падение (кадр 3 снизу)
             }
 
             if (frameCount % 100 === 0) spawnObstacle();
@@ -178,11 +154,8 @@
                 obstacles[i].x -= gameSpeed;
                 let obs = obstacles[i];
                 if (obs.x + obs.w < 0) { obstacles.splice(i, 1); i--; continue; }
-
                 if (player.x + 60 < obs.x + obs.w - 60 && player.x + player.w - 60 > obs.x + 60 &&
-                    player.y + 60 < obs.y + obs.h - 60 && player.y + player.h - 60 > obs.y + 60) {
-                    gameOver();
-                }
+                    player.y + 60 < obs.y + obs.h - 60 && player.y + player.h - 60 > obs.y + 60) gameOver();
             }
             frameCount++;
         }
@@ -190,34 +163,28 @@
         function draw() {
             ctx.clearRect(0, 0, width, height);
             ctx.imageSmoothingEnabled = false; 
-
-            // Отрисовка фона (фон 2000x1000 тянется на весь экран)
             ctx.drawImage(bgImage, bgX, 0, width, height);
             ctx.drawImage(bgImage, bgX + width, 0, width, height);
             
-            // Отрисовка игрока (вырезаем 1000x1000)
+            // Координаты выреза из спрайта (каждый кадр 1000x1000)
             ctx.drawImage(
                 playerImg, 
                 player.frameX * 1000, player.frameY * 1000, 1000, 1000, 
                 player.x, player.y, player.w, player.h
             );
 
-            // Отрисовка препятствий
-            for (let obs of obstacles) {
-                ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
-            }
+            for (let obs of obstacles) ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
         }
 
         function loop() { if (gameRunning) { update(); draw(); requestAnimationFrame(loop); } }
-
         function gameOver() {
             gameRunning = false; sounds.bg.pause(); sounds.lose.play();
             document.getElementById('final-score').innerText = Math.floor(score / 10);
             document.getElementById('game-over-screen').classList.remove('hidden');
             document.getElementById('score-board').style.display = 'none';
         }
-
         function resetGame() { document.getElementById('game-over-screen').classList.add('hidden'); startGame(); }
+        function backToMenu() { gameRunning = false; sounds.bg.pause(); document.getElementById('game-over-screen').classList.add('hidden'); document.getElementById('start-screen').classList.remove('hidden'); document.getElementById('score-board').style.display = 'none'; }
 
         const keys = {};
         window.addEventListener('keydown', e => { if (e.code === 'Space') keys['Space'] = true; });
