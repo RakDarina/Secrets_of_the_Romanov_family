@@ -108,8 +108,7 @@
         </div>
 
         <div id="game-over-screen" class="menu-box hidden">
-            <h1>Ой!</h1>
-            <p>Вы не перепрыгнули <span id="obstacle-name">объект</span></p>
+            <h1>Игра окончена</h1>
             <p>Ваш счет: <span id="final-score">0</span></p>
             <button class="start-btn" onclick="resetGame()">Заново</button>
         </div>
@@ -117,14 +116,14 @@
 
     <script>
         const characters = [
-            { id: 'eva', name: 'Ева', file: 'eva.png', obsFile: 'eva_obs.png', obsName: 'Тюрьма' },
-            { id: 'master', name: 'Мастер', file: 'master.png', obsFile: 'eva_obs.png', obsName: 'Тюрьма' },
-            { id: 'fedor', name: 'Федор', file: 'fedor.png', obsFile: 'volodya_obs.png', obsName: 'Ладан' },
-            { id: 'volodya', name: 'Володя', file: 'volodya.png', obsFile: 'volodya_obs.png', obsName: 'Чеснок' },
-            { id: 'georgiy', name: 'Георгий-А.', file: 'georgiy.png', obsFile: 'georgiy_obs.png', obsName: 'Картинка 10' },
-            { id: 'kvek', name: 'Квек', file: 'kvek.png', obsFile: 'volodya_obs.png', obsName: 'Ладан' },
-            { id: 'gavriil', name: 'Гавриил', file: 'gavriil.png', obsFile: 'gm_obs.png', obsName: 'Объект Г.М.' },
-            { id: 'mikhail', name: 'Михаил', file: 'mikhail.png', obsFile: 'gm_obs.png', obsName: 'Объект Г.М.' }
+            { id: 'eva', name: 'Ева', file: 'eva.png', obsFile: 'eva_obs.png' },
+            { id: 'master', name: 'Мастер', file: 'master.png', obsFile: 'eva_obs.png' },
+            { id: 'fedor', name: 'Федор', file: 'fedor.png', obsFile: 'volodya_obs.png' },
+            { id: 'volodya', name: 'Володя', file: 'volodya.png', obsFile: 'volodya_obs.png' },
+            { id: 'georgiy', name: 'Георгий-А.', file: 'georgiy.png', obsFile: 'georgiy_obs.png' },
+            { id: 'kvek', name: 'Квек', file: 'kvek.png', obsFile: 'volodya_obs.png' },
+            { id: 'gavriil', name: 'Гавриил', file: 'gavriil.png', obsFile: 'gm_obs.png' },
+            { id: 'mikhail', name: 'Михаил', file: 'mikhail.png', obsFile: 'gm_obs.png' }
         ];
 
         const sounds = {
@@ -162,11 +161,11 @@
         const player = {
             x: 50,
             y: 0,
-            w: 200, // Было 80, теперь 80 * 2.5 = 200
-            h: 200, // Было 80, теперь 80 * 2.5 = 200
+            w: 200, 
+            h: 200, 
             dy: 0,
-            jumpPower: -15,
-            gravity: 0.8,
+            jumpPower: -22, // Усилено для крупного персонажа
+            gravity: 1.0,   // Гравитация увеличена для баланса
             grounded: false,
             frameX: 0,
             action: 0,
@@ -225,7 +224,7 @@
         }
 
         function spawnObstacle() {
-            const size = 175; // Было 70, теперь 70 * 2.5 = 175
+            const size = 175; 
             obstacles.push({
                 x: width,
                 y: groundY - size,
@@ -287,10 +286,10 @@
                 }
 
                 if (
-                    player.x + 30 < obs.x + obs.w - 30 &&
-                    player.x + player.w - 30 > obs.x + 30 &&
-                    player.y + 30 < obs.y + obs.h - 30 &&
-                    player.y + player.h - 30 > obs.y + 30
+                    player.x + 35 < obs.x + obs.w - 35 &&
+                    player.x + player.w - 35 > obs.x + 35 &&
+                    player.y + 35 < obs.y + obs.h - 35 &&
+                    player.y + player.h - 35 > obs.y + 35
                 ) {
                     gameOver();
                 }
@@ -304,16 +303,6 @@
             ctx.drawImage(bgImage, bgX, 0, width, height);
             ctx.drawImage(bgImage, bgX + width, 0, width, height);
             
-            // Линия пола удалена (сделана невидимой)
-            /*
-            ctx.beginPath();
-            ctx.moveTo(0, groundY);
-            ctx.lineTo(width, groundY);
-            ctx.strokeStyle = "#555";
-            ctx.lineWidth = 4;
-            ctx.stroke();
-            */
-
             let spriteRow = player.grounded ? 0 : 1; 
             
             ctx.drawImage(
@@ -342,7 +331,6 @@
             sounds.lose.play();
             
             document.getElementById('final-score').innerText = Math.floor(score / 10);
-            document.getElementById('obstacle-name').innerText = characters[selectedCharIndex].obsName;
             
             document.getElementById('game-over-screen').classList.remove('hidden');
             document.getElementById('score-board').style.display = 'none';
