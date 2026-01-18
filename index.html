@@ -349,15 +349,30 @@
             }
 
             checkCollision(player, obs) {
-                // Уменьшаем хитбокс, чтобы игра была честной (на 20 пикселей внутрь)
-                const padding = 20; 
-                return (
-                    player.x < obs.x + obs.width - padding &&
-                    player.x + player.width > obs.x + padding &&
-                    player.y < obs.y + obs.height - padding &&
-                    player.y + player.height > obs.y + padding
-                );
-            }
+    // Настраиваем коэффициент сжатия хитбокса. 
+    // 0.3 означает, что реальная зона столкновения составит только 30% от центра картинки.
+    const hitBoxShrink = 0.3; 
+
+    // Вычисляем размеры невидимого блока для игрока
+    const pW = player.width * hitBoxShrink;
+    const pH = player.height * hitBoxShrink;
+    const pX = player.x + (player.width - pW) / 2;
+    const pY = player.y + (player.height - pH) / 2;
+
+    // Вычисляем размеры невидимого блока для препятствия
+    const oW = obs.width * hitBoxShrink;
+    const oH = obs.height * hitBoxShrink;
+    const oX = obs.x + (obs.width - oW) / 2;
+    const oY = obs.y + (obs.height - oH) / 2;
+
+    // Проверка столкновения этих уменьшенных квадратов
+    return (
+        pX < oX + oW &&
+        pX + pW > oX &&
+        pY < oY + oH &&
+        pY + pH > oY
+    );
+}
 
             loop() {
                 if (this.state !== 'playing') return;
