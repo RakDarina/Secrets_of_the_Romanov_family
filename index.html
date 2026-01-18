@@ -10,17 +10,15 @@
             display: block; 
             width: 100%; 
             height: 100%; 
-            /* Убираем любое размытие */
-            image-rendering: pixelated;
+            image-rendering: pixelated; /* Четкий фон и персонажи */
             image-rendering: crisp-edges;
-            image-rendering: -moz-crisp-edges;
         }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .menu-box { background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: auto; }
         .char-select { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-bottom: 20px; }
         .char-btn { border: 3px solid #ccc; border-radius: 12px; padding: 10px; cursor: pointer; background: white; width: 90px; }
         .char-btn.selected { border-color: #4CAF50; background-color: #e8f5e9; }
-        button { padding: 15px 30px; font-size: 18px; border-radius: 50px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button { padding: 15px 30px; font-size: 18px; border-radius: 50px; border: none; cursor: pointer; font-weight: bold; }
         .start-btn { background-color: #4CAF50; color: white; }
         .menu-btn { background-color: #2196F3; color: white; margin-top: 10px; }
         #score-board { position: absolute; top: 20px; right: 20px; font-size: 28px; font-weight: bold; color: #fff; text-shadow: 2px 2px 4px #000; display: none; }
@@ -41,7 +39,7 @@
 
         <div id="game-over-screen" class="menu-box hidden">
             <h1>Игра окончена</h1>
-            <p style="font-size: 20px;">Ваш счет: <span id="final-score">0</span></p>
+            <p>Счет: <span id="final-score">0</span></p>
             <button class="start-btn" onclick="resetGame()">Заново</button><br>
             <button class="menu-btn" onclick="backToMenu()">Сменить героя</button>
         </div>
@@ -69,7 +67,7 @@
         function resize() {
             width = window.innerWidth; height = window.innerHeight;
             canvas.width = width; canvas.height = height;
-            groundY = height - 100; // Немного опустил персонажа ниже
+            groundY = height - 100;
             ctx.imageSmoothingEnabled = false; 
         }
         window.addEventListener('resize', resize);
@@ -82,7 +80,7 @@
         const player = {
             x: 80, y: 0, w: 220, h: 220, dy: 0,
             jumpPower: -28, gravity: 1.0, grounded: false,
-            frameX: 0, timer: 0
+            frameX: 0, frameY: 0, timer: 0
         };
 
         const obstacles = [];
@@ -128,7 +126,7 @@
         function spawnObstacle() {
             if (obstacles.length > 0) {
                 const last = obstacles[obstacles.length - 1];
-                if (width - last.x < 500) return; // Увеличил дистанцию для честного прыжка
+                if (width - last.x < 550) return; 
             }
             const size = 180; 
             obstacles.push({ x: width, y: groundY - size, w: size, h: size });
@@ -153,17 +151,25 @@
                 player.dy = 0; player.grounded = true; player.y = groundY - player.h;
             }
 
-            // Логика анимации: только если на земле
+            // ЛОГИКА АНИМАЦИИ
             if (player.grounded) {
+                player.frameY = 0; // Верхний ряд (Бег)
                 player.timer++;
                 if (player.timer > 8) {
                     player.frameX++; 
-                    if (player.frameX > 2) player.frameX = 0; // Всего 3 кадра: 0, 1, 2
+                    if (player.frameX > 2) player.frameX = 0; 
                     player.timer = 0;
                 }
             } else {
-                // В прыжке фиксируем средний кадр (кадр 1)
-                player.frameX = 1;
+                player.frameY = 1; // Нижний ряд (Прыжок)
+                // Выбор кадра в зависимости от вертикальной скорости dy
+                if (player.dy < -5) {
+                    player.frameX = 0; // Взлет
+                } else if (player.dy >= -5 && player.dy <= 5) {
+                    player.frameX = 1; // Пик прыжка (в воздухе)
+                } else {
+                    player.frameX = 2; // Падение / Приземление
+                }
             }
 
             if (frameCount % 100 === 0) spawnObstacle();
@@ -173,7 +179,6 @@
                 let obs = obstacles[i];
                 if (obs.x + obs.w < 0) { obstacles.splice(i, 1); i--; continue; }
 
-                // Хитбокс (чуть уменьшен для честности)
                 if (player.x + 60 < obs.x + obs.w - 60 && player.x + player.w - 60 > obs.x + 60 &&
                     player.y + 60 < obs.y + obs.h - 60 && player.y + player.h - 60 > obs.y + 60) {
                     gameOver();
@@ -184,21 +189,20 @@
 
         function draw() {
             ctx.clearRect(0, 0, width, height);
-            
-            // Фон (рисуем 2 раза для бесшовности)
+            ctx.imageSmoothingEnabled = false; 
+
+            // Отрисовка фона (фон 2000x1000 тянется на весь экран)
             ctx.drawImage(bgImage, bgX, 0, width, height);
             ctx.drawImage(bgImage, bgX + width, 0, width, height);
             
-            // Анимация бега (верхний ряд) или прыжка (нижний ряд)
-            // Но мы решили использовать 2-й кадр первого ряда для прыжка в логике выше
-            let spriteRow = 0; 
-            
+            // Отрисовка игрока (вырезаем 1000x1000)
             ctx.drawImage(
                 playerImg, 
-                player.frameX * 1000, spriteRow * 1000, 1000, 1000, 
+                player.frameX * 1000, player.frameY * 1000, 1000, 1000, 
                 player.x, player.y, player.w, player.h
             );
 
+            // Отрисовка препятствий
             for (let obs of obstacles) {
                 ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
             }
