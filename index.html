@@ -17,7 +17,6 @@
             display: block;
             width: 100%;
             height: 100%;
-            /* Включаем четкость для пиксель-арта */
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
@@ -82,8 +81,20 @@
             border-radius: 50px;
             cursor: pointer;
             font-weight: bold;
+            margin: 5px;
         }
-        button.start-btn:active { transform: scale(0.98); }
+        button.menu-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        button.start-btn:active, button.menu-btn:active { transform: scale(0.98); }
         #score-board {
             position: absolute;
             top: 10px;
@@ -114,6 +125,8 @@
             <h1>Игра окончена</h1>
             <p>Ваш счет: <span id="final-score">0</span></p>
             <button class="start-btn" onclick="resetGame()">Заново</button>
+            <br>
+            <button class="menu-btn" onclick="backToMenu()">Сменить героя</button>
         </div>
     </div>
 
@@ -139,17 +152,15 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Отключаем сглаживание для четкости
         ctx.imageSmoothingEnabled = false;
 
-        let width, height;
+        let width, height, groundY;
         function resize() {
             width = window.innerWidth;
             height = window.innerHeight;
             canvas.width = width;
             canvas.height = height;
             groundY = height - 150;
-            // Повторно отключаем после изменения размера
             ctx.imageSmoothingEnabled = false;
         }
         window.addEventListener('resize', resize);
@@ -157,7 +168,6 @@
         let gameRunning = false;
         let score = 0;
         let gameSpeed = 5;
-        let groundY;
         let selectedCharIndex = 0;
         let frameCount = 0;
         let bgX = 0;
@@ -172,8 +182,8 @@
             w: 200, 
             h: 200, 
             dy: 0,
-            jumpPower: -26, // Еще мощнее прыжок
-            gravity: 0.9,   // Чуть меньше гравитация для полета
+            jumpPower: -26, 
+            gravity: 0.9,   
             grounded: false,
             frameX: 0,
             action: 0,
@@ -184,9 +194,10 @@
 
         function initMenu() {
             const list = document.getElementById('char-list');
+            list.innerHTML = ""; 
             characters.forEach((char, index) => {
                 const btn = document.createElement('div');
-                btn.className = 'char-btn' + (index === 0 ? ' selected' : '');
+                btn.className = 'char-btn' + (index === selectedCharIndex ? ' selected' : '');
                 btn.onclick = () => selectCharacter(index, btn);
                 btn.innerHTML = `
                     <div style="
@@ -232,14 +243,22 @@
             loop();
         }
 
+        function backToMenu() {
+            gameRunning = false;
+            sounds.bg.pause();
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('score-board').style.display = 'none';
+            initMenu();
+        }
+
         function spawnObstacle() {
             const size = 175; 
             obstacles.push({
                 x: width,
                 y: groundY - size,
                 w: size,
-                h: size,
-                passed: false
+                h: size
             });
         }
 
@@ -294,7 +313,6 @@
                     continue;
                 }
 
-                // Хитбокс настроен так, чтобы прощать небольшие касания
                 if (
                     player.x + 45 < obs.x + obs.w - 45 &&
                     player.x + player.w - 45 > obs.x + 45 &&
@@ -309,8 +327,6 @@
 
         function draw() {
             ctx.clearRect(0, 0, width, height);
-
-            // Чтобы фон тоже был четким
             ctx.imageSmoothingEnabled = false;
 
             ctx.drawImage(bgImage, bgX, 0, width, height);
@@ -342,9 +358,7 @@
             gameRunning = false;
             sounds.bg.pause();
             sounds.lose.play();
-            
             document.getElementById('final-score').innerText = Math.floor(score / 10);
-            
             document.getElementById('game-over-screen').classList.remove('hidden');
             document.getElementById('score-board').style.display = 'none';
         }
@@ -355,27 +369,13 @@
         }
 
         const keys = {};
-
-        window.addEventListener('keydown', e => {
-            if (e.code === 'Space') keys['Space'] = true;
-        });
-        window.addEventListener('keyup', e => {
-            if (e.code === 'Space') keys['Space'] = false;
-        });
+        window.addEventListener('keydown', e => { if (e.code === 'Space') keys['Space'] = true; });
+        window.addEventListener('keyup', e => { if (e.code === 'Space') keys['Space'] = false; });
         window.addEventListener('mousedown', () => keys['Click'] = true);
         window.addEventListener('mouseup', () => keys['Click'] = false);
-
-        window.addEventListener('touchstart', (e) => {
-            keys['Click'] = true;
-        }, {passive: false});
-        
-        window.addEventListener('touchend', (e) => {
-            keys['Click'] = false;
-        });
-
-        window.onkeydown = function(e) { 
-            return !(e.keyCode == 32); 
-        };
+        window.addEventListener('touchstart', (e) => { keys['Click'] = true; }, {passive: false});
+        window.addEventListener('touchend', (e) => { keys['Click'] = false; });
+        window.onkeydown = function(e) { return !(e.keyCode == 32); };
 
         initMenu();
     </script>
