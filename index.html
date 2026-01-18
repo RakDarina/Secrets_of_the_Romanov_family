@@ -11,7 +11,9 @@
             overflow: hidden;
             background-color: #333;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: manipulation; /* Улучшает реакцию на тап */
+            touch-action: manipulation; /* Важно для телефонов */
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         #gameCanvas {
@@ -72,7 +74,6 @@
             width: 80px;
             height: 80px;
             object-fit: cover;
-            /* Показываем только лицо (верхний левый угол спрайта) для превью */
             object-position: 0 0; 
             border-radius: 50%;
             margin-bottom: 5px;
@@ -104,13 +105,15 @@
             font-weight: bold;
             text-shadow: 2px 2px 4px #000;
             z-index: 5;
+            pointer-events: none;
         }
 
-        /* Адаптив для телефонов */
+        /* Адаптив интерфейса для телефонов */
         @media (max-width: 768px) {
             .char-grid { grid-template-columns: repeat(2, 1fr); }
             h1 { font-size: 2rem; }
             .char-card img { width: 60px; height: 60px; }
+            .btn { font-size: 1.2rem; padding: 10px 30px; }
         }
     </style>
 </head>
@@ -140,13 +143,13 @@
     <audio id="soundFail" src="fail.mp3"></audio>
 
     <script>
-        // --- КОНФИГУРАЦИЯ ---
+        // --- СПИСОК ПЕРСОНАЖЕЙ ---
         const CHARACTERS = [
             { id: 'eva', name: 'Ева', file: 'eva.png', obs: 'eva_obs.png' },
             { id: 'master', name: 'Мастер', file: 'master.png', obs: 'master_obs.png' },
             { id: 'fedor', name: 'Федор', file: 'fedor.png', obs: 'fedor_obs.png' },
             { id: 'volodya', name: 'Володя', file: 'volodya.png', obs: 'volodya_obs.png' },
-            { id: 'georgiy', name: 'Георгий-А', file: 'georgiy.png', obs: 'georgiy_obs.png' }, // Имя файла georgiy.png
+            { id: 'georgiy', name: 'Георгий-А', file: 'georgiy.png', obs: 'georgiy_obs.png' },
             { id: 'gavriil', name: 'Гавриил', file: 'gavriil.png', obs: 'gavriil_obs.png' },
             { id: 'mikhail', name: 'Михаил', file: 'mikhail.png', obs: 'mikhail_obs.png' },
             { id: 'kvek', name: 'Квек', file: 'kvek.png', obs: 'kvek_obs.png' }
@@ -156,42 +159,43 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Переменные состояния
-        let canvasWidth, canvasHeight;
-        let frames = 0;
-        let animationFrameId;
-        
-        // Настройки физики (будут адаптироваться под размер экрана)
-        let groundHeight = 50; 
-        
         // Звуки
         const bgMusic = document.getElementById('bgMusic');
         const soundJump = document.getElementById('soundJump');
         const soundFail = document.getElementById('soundFail');
         
-        // Управление громкостью
         bgMusic.volume = 0.4;
         soundJump.volume = 0.6;
 
+        // Глобальные переменные размера
+        let canvasWidth, canvasHeight;
+        let groundHeight;
+
         class Game {
             constructor() {
-                this.state = 'menu'; // menu, playing, gameover
+                this.state = 'menu'; 
                 this.score = 0;
                 this.speed = 0;
                 this.currentChar = null;
                 this.player = null;
                 this.obstacles = [];
                 this.bgX = 0;
+                this.isMobile = false;
                 
-                // Загрузка картинок
-                this.images = {};
+                // Фон
                 this.bgImage = new Image();
                 this.bgImage.src = 'background.png';
                 
+                // Настройка размеров
                 this.resize();
                 window.addEventListener('resize', () => this.resize());
+                
                 this.initInput();
                 this.buildMenu();
+                
+                // Переменные для анимации
+                this.lastTime = 0;
+                this.animationFrameId = null;
             }
 
             resize() {
@@ -199,10 +203,15 @@
                 canvasHeight = window.innerHeight;
                 canvas.width = canvasWidth;
                 canvas.height = canvasHeight;
-                groundHeight = canvasHeight * 0.15; // Земля занимает 15% снизу
+
+                // --- АДАПТАЦИЯ ПОД ТЕЛЕФОН ---
+                // Если ширина меньше 768px, считаем это телефоном
+                this.isMobile = canvasWidth < 768;
+
+                // На телефоне земля чуть ниже (10%), на ПК выше (15%)
+                groundHeight = this.isMobile ? canvasHeight * 0.1 : canvasHeight * 0.15;
             }
 
-            // Постройка меню выбора
             buildMenu() {
                 const grid = document.getElementById('charGrid');
                 grid.innerHTML = '';
@@ -219,7 +228,7 @@
             }
 
             initInput() {
-                // Прыжок пробелом
+                // Пробел
                 document.addEventListener('keydown', (e) => {
                     if (e.code === 'Space') {
                         if (this.state === 'playing') this.player.jump();
@@ -227,42 +236,44 @@
                     }
                 });
 
-                // Прыжок кликом или тапом
-                document.addEventListener('touchstart', (e) => {
+                // Тап по экрану / Клик мышкой
+                const handleTap = () => {
                     if (this.state === 'playing') this.player.jump();
+                };
+
+                document.addEventListener('touchstart', (e) => {
+                    handleTap(); 
+                    // e.preventDefault(); // Можно раскомментировать, если будет скроллиться
                 }, {passive: false});
                 
-                document.addEventListener('mousedown', (e) => {
-                    if (this.state === 'playing') this.player.jump();
-                });
+                document.addEventListener('mousedown', handleTap);
             }
 
             startGame(charConfig) {
                 this.currentChar = charConfig;
                 this.state = 'playing';
                 this.score = 0;
-                this.speed = 10; // Начальная скорость
+                this.speed = this.isMobile ? 8 : 10; // На телефоне чуть медленнее старт
                 this.obstacles = [];
                 
-                // Создаем игрока
-                this.player = new Player(charConfig);
+                this.player = new Player(charConfig, this.isMobile);
 
                 // UI
                 document.getElementById('menuScreen').classList.add('hidden');
                 document.getElementById('gameOverScreen').classList.add('hidden');
                 document.getElementById('scoreBoard').classList.remove('hidden');
                 
-                // Музыка
+                // Звук
                 soundFail.pause();
                 soundFail.currentTime = 0;
-                bgMusic.play().catch(e => console.log("Audio play failed interaction required"));
+                bgMusic.play().catch(e => console.log("Music blocked until interaction"));
 
                 this.loop();
             }
 
             gameOver() {
                 this.state = 'gameover';
-                cancelAnimationFrame(animationFrameId);
+                cancelAnimationFrame(this.animationFrameId);
                 
                 bgMusic.pause();
                 soundFail.play();
@@ -283,26 +294,27 @@
             }
 
             spawnObstacle() {
-                // Логика спавна: чем больше очков, тем меньше минимальная дистанция
-                // Но оставляем окно для прыжка
                 const lastObs = this.obstacles[this.obstacles.length - 1];
-                let safeDistance = 600 + Math.random() * 500; // Случайная дистанция
+                
+                // Дистанция зависит от устройства (на телефоне плотнее, но скорость ниже)
+                let baseSafeDist = this.isMobile ? 300 : 600; 
+                let randomDist = Math.random() * (this.isMobile ? 300 : 500);
+                let safeDistance = baseSafeDist + randomDist;
                 
                 if (!lastObs || (canvasWidth - lastObs.x > safeDistance)) {
-                    // 30% шанс спавна, если дистанция соблюдена
                     if (Math.random() < 0.05) { 
-                        this.obstacles.push(new Obstacle(this.currentChar.obs, this.speed));
+                        this.obstacles.push(new Obstacle(this.currentChar.obs, this.speed, this.isMobile));
                     }
                 }
             }
 
             update() {
-                this.speed += 0.005; // Постепенное ускорение
+                this.speed += 0.005; 
                 this.score += 0.1;
                 document.getElementById('scoreBoard').innerText = `Очки: ${Math.floor(this.score)}`;
 
                 // Фон
-                this.bgX -= this.speed * 0.5; // Фон движется чуть медленнее (параллакс)
+                this.bgX -= this.speed * 0.5;
                 if (this.bgX <= -canvasWidth) this.bgX = 0;
 
                 // Игрок
@@ -315,12 +327,10 @@
                     let obs = this.obstacles[i];
                     obs.update(this.speed);
 
-                    // Удаление ушедших
                     if (obs.x + obs.width < 0) {
                         this.obstacles.splice(i, 1);
                     }
 
-                    // Столкновение
                     if (this.checkCollision(this.player, obs)) {
                         this.gameOver();
                     }
@@ -330,7 +340,7 @@
             draw() {
                 ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-                // Отрисовка фона (дважды для зацикливания)
+                // Фон
                 if (this.bgImage.complete) {
                     ctx.drawImage(this.bgImage, this.bgX, 0, canvasWidth, canvasHeight);
                     ctx.drawImage(this.bgImage, this.bgX + canvasWidth, 0, canvasWidth, canvasHeight);
@@ -339,81 +349,76 @@
                     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
                 }
 
-                // Земля (для визуализации)
-                // ctx.fillStyle = '#222';
-                // ctx.fillRect(0, canvasHeight - groundHeight, canvasWidth, groundHeight);
-
-                // Объекты
                 this.player.draw();
                 this.obstacles.forEach(obs => obs.draw());
             }
 
             checkCollision(player, obs) {
-    // Настраиваем коэффициент сжатия хитбокса. 
-    // 0.3 означает, что реальная зона столкновения составит только 30% от центра картинки.
-    const hitBoxShrink = 0.3; 
+                // --- ХИТБОКС (НЕВИДИМАЯ ЗОНА) ---
+                // 0.3 = 30% от размера картинки (чтобы обрезать пустые края)
+                const hitBoxShrink = 0.3; 
 
-    // Вычисляем размеры невидимого блока для игрока
-    const pW = player.width * hitBoxShrink;
-    const pH = player.height * hitBoxShrink;
-    const pX = player.x + (player.width - pW) / 2;
-    const pY = player.y + (player.height - pH) / 2;
+                const pW = player.width * hitBoxShrink;
+                const pH = player.height * hitBoxShrink;
+                // Центрируем хитбокс
+                const pX = player.x + (player.width - pW) / 2;
+                const pY = player.y + (player.height - pH) / 2;
 
-    // Вычисляем размеры невидимого блока для препятствия
-    const oW = obs.width * hitBoxShrink;
-    const oH = obs.height * hitBoxShrink;
-    const oX = obs.x + (obs.width - oW) / 2;
-    const oY = obs.y + (obs.height - oH) / 2;
+                const oW = obs.width * hitBoxShrink;
+                const oH = obs.height * hitBoxShrink;
+                const oX = obs.x + (obs.width - oW) / 2;
+                const oY = obs.y + (obs.height - oH) / 2;
 
-    // Проверка столкновения этих уменьшенных квадратов
-    return (
-        pX < oX + oW &&
-        pX + pW > oX &&
-        pY < oY + oH &&
-        pY + pH > oY
-    );
-}
+                return (
+                    pX < oX + oW &&
+                    pX + pW > oX &&
+                    pY < oY + oH &&
+                    pY + pH > oY
+                );
+            }
 
             loop() {
                 if (this.state !== 'playing') return;
                 this.update();
                 this.draw();
-                frames++;
-                animationFrameId = requestAnimationFrame(() => this.loop());
+                this.animationFrameId = requestAnimationFrame(() => this.loop());
             }
         }
 
         class Player {
-            constructor(config) {
+            constructor(config, isMobile) {
                 this.img = new Image();
                 this.img.src = config.file;
                 
-                // Размеры отображения персонажа (адекватно экрану)
-                // Исходник 3000x2000. Кадр 1000x1000.
-               // Было 0.25 (25% высоты экрана), теперь 0.5 (50%)
-this.height = canvasHeight * 0.5; 
-// Ограничение по максимальному размеру тоже увеличим, чтобы на ПК не было мелко
-if (this.height > 400) this.height = 400; 
-this.width = this.height; // Оставляем квадратным
+                // --- АДАПТАЦИЯ РАЗМЕРА ИГРОКА ---
+                // ПК: 50% от высоты экрана. Телефон: 30% (чтобы не было гигантизма)
+                const sizeMultiplier = isMobile ? 0.3 : 0.5;
+                this.height = canvasHeight * sizeMultiplier;
+                
+                // Ограничитель (чтобы на ультра-широких экранах не было монстров)
+                // ПК макс 400px, Телефон макс 180px
+                const maxPixelHeight = isMobile ? 180 : 400;
+                if (this.height > maxPixelHeight) this.height = maxPixelHeight;
+                
+                this.width = this.height; // Квадратная пропорция (1000x1000 исходник)
 
-                this.x = 100;
+                // Позиция
+                this.x = isMobile ? 50 : 100; // На телефоне ближе к краю
                 this.y = canvasHeight - groundHeight - this.height;
                 
-                // --- ВНУТРИ class Player ---
-// Настройки физики (усиленные)
-this.dy = 0;
-// Мы увеличили коэффициент с 0.027 до 0.035 для более высокого прыжка
-// Увеличиваем силу прыжка, чтобы соответствовать новым размерам
-this.jumpForce = canvasHeight * 0.05; 
-// Гравитацию тоже чуть поднимем, чтобы персонаж не был "ватным"
-this.gravity = canvasHeight * 0.0022;
-this.originalY = this.y;
-this.isJumping = false;
+                // --- ФИЗИКА (Адаптивная) ---
+                this.dy = 0;
+                // На телефоне прыжок чуть резче, так как экран меньше
+                this.jumpForce = canvasHeight * (isMobile ? 0.04 : 0.05); 
+                this.gravity = canvasHeight * (isMobile ? 0.0025 : 0.0022);
+                
+                this.originalY = this.y;
+                this.isJumping = false;
 
                 // Анимация
                 this.frameIndex = 0;
                 this.tickCount = 0;
-                this.ticksPerFrame = 5; // Скорость анимации
+                this.ticksPerFrame = 5;
             }
 
             jump() {
@@ -426,15 +431,15 @@ this.isJumping = false;
             }
 
             update() {
-                // Анимация
+                // Анимация кадров
                 this.tickCount++;
                 if (this.tickCount > this.ticksPerFrame) {
                     this.tickCount = 0;
                     this.frameIndex++;
-                    if (this.frameIndex > 2) this.frameIndex = 0; // 3 кадра (0, 1, 2)
+                    if (this.frameIndex > 2) this.frameIndex = 0;
                 }
 
-                // Физика прыжка
+                // Физика
                 this.y += this.dy;
                 if (this.y < this.originalY) {
                     this.dy += this.gravity;
@@ -449,36 +454,39 @@ this.isJumping = false;
             draw() {
                 if (!this.img.complete) return;
 
-                // Спрайтшит: 
-                // Row 0 (Y=0) - Бег
-                // Row 1 (Y=1000) - Прыжок
-                
-                let sourceY = 0; 
-                if (this.isJumping) sourceY = 1000;
-
+                // Логика спрайт-листа:
+                // Ряд 0 (Y=0) - Бег
+                // Ряд 1 (Y=1000) - Прыжок
+                let sourceY = this.isJumping ? 1000 : 0;
                 let sourceX = this.frameIndex * 1000;
 
                 ctx.drawImage(
                     this.img,
-                    sourceX, sourceY, 1000, 1000, // Source (кадр в файле)
-                    this.x, this.y, this.width, this.height // Destination (на экране)
+                    sourceX, sourceY, 1000, 1000, 
+                    this.x, this.y, this.width, this.height
                 );
             }
         }
 
         class Obstacle {
-            constructor(imgSrc, speed) {
+            constructor(imgSrc, speed, isMobile) {
                 this.img = new Image();
                 this.img.src = imgSrc;
                 
-                // Размеры препятствия чуть меньше игрока
-                // Было 0.15, теперь 0.3 (30% высоты экрана)
-this.height = canvasHeight * 0.3; 
-if (this.height > 240) this.height = 240;
-this.width = this.height;
+                // --- АДАПТАЦИЯ РАЗМЕРА ПРЕПЯТСТВИЯ ---
+                // ПК: 30% высоты экрана. Телефон: 20%
+                const sizeMultiplier = isMobile ? 0.2 : 0.3;
+                this.height = canvasHeight * sizeMultiplier;
+                
+                const maxPixelHeight = isMobile ? 120 : 240;
+                if (this.height > maxPixelHeight) this.height = maxPixelHeight;
+                
+                this.width = this.height;
 
                 this.x = canvasWidth;
-                this.y = canvasHeight - groundHeight - this.height + 10; // +10 чтобы чуть "утопить" в землю
+                // Немного утапливаем объект в землю (+10px ПК, +5px Телефон)
+                const groundOffset = isMobile ? 5 : 10;
+                this.y = canvasHeight - groundHeight - this.height + groundOffset;
             }
 
             update(speed) {
@@ -486,12 +494,7 @@ this.width = this.height;
             }
 
             draw() {
-                if (!this.img.complete) {
-                    // Заглушка, если картинка не загрузилась
-                    ctx.fillStyle = 'red';
-                    ctx.fillRect(this.x, this.y, this.width, this.height);
-                    return;
-                }
+                if (!this.img.complete) return;
                 ctx.drawImage(this.img, 0, 0, 1000, 1000, this.x, this.y, this.width, this.height);
             }
         }
