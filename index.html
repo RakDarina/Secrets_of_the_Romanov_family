@@ -3,287 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pixel Runner: Slavic Edition</title>
+    <title>Slavic Runner: Hardcore Edition</title>
     <style>
-        body {
-            margin: 0; padding: 0; overflow: hidden;
-            background-color: #202028;
-            font-family: 'Courier New', Courier, monospace;
-            touch-action: manipulation;
-            -webkit-tap-highlight-color: transparent; /* Убирает синий квадрат при нажатии на iOS */
-        }
-        #game-container {
-            position: relative; width: 100%; height: 100vh;
-            display: flex; justify-content: center; align-items: center;
-            background: #000;
-        }
-        canvas { display: block; image-rendering: pixelated; max-width: 100%; max-height: 100%; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: manipulation; }
+        #game-container { position: relative; width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; }
         
-        /* Интерфейс */
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85); display: flex;
-            flex-direction: column; justify-content: center; align-items: center;
-            z-index: 10; color: white; text-align: center;
+        canvas { 
+            display: block; 
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
         }
-        h1 { margin-bottom: 10px; font-size: 22px; color: #ffcc00; text-transform: uppercase; letter-spacing: 2px; }
-        p { margin-top: 0; color: #aaa; font-size: 12px; margin-bottom: 20px;}
 
-        .char-grid {
-            display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
-            max-height: 65vh; overflow-y: auto; padding: 10px;
-            width: 90%; max-width: 400px;
-        }
-        .char-btn {
-            background: #333; border: 2px solid #555; padding: 8px;
-            cursor: pointer; border-radius: 8px; transition: 0.2s;
-            display: flex; flex-direction: column; align-items: center;
-        }
-        .char-btn:active { transform: scale(0.95); background: #555; border-color: #ffcc00; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; color: white; text-align: center; }
+        .char-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 20px; }
+        .char-btn { background: #222; border: 2px solid #555; padding: 10px; cursor: pointer; border-radius: 8px; display: flex; flex-direction: column; align-items: center; transition: 0.2s; }
+        .char-btn:active { transform: scale(0.9); }
+        .char-btn img { width: 60px; height: 60px; object-fit: contain; image-rendering: pixelated; }
         
-        .char-btn-img-box {
-            width: 40px; height: 40px; overflow: hidden; margin-bottom: 5px; position: relative;
-        }
-        .char-btn img {
-             position: absolute; top: 0; left: 0;
-             height: 100%; image-rendering: pixelated;
-        }
-        .char-btn span { font-size: 13px; font-weight: bold; }
+        #score-container { position: absolute; top: 20px; right: 20px; color: white; text-align: right; z-index: 5; display: none; }
+        #score { font-size: 32px; font-weight: bold; text-shadow: 3px 3px #000; }
+        #highscore { font-size: 16px; color: #ffcc00; text-shadow: 2px 2px #000; }
 
-        #score {
-            position: absolute; top: 15px; right: 20px;
-            color: white; font-size: 24px; font-weight: bold; z-index: 5;
-            text-shadow: 2px 2px 0 #000; display: none;
-        }
-        #restart-btn {
-            margin-top: 20px; padding: 15px 40px; font-size: 18px;
-            background: #ffcc00; border: none; color: #000; border-radius: 5px;
-            font-weight: bold; cursor: pointer; display: none;
-            box-shadow: 0 4px 0 #b38f00;
-        }
-        #restart-btn:active { transform: translateY(4px); box-shadow: none; }
+        button#restart { margin-top: 20px; padding: 15px 30px; font-size: 24px; background: #ffcc00; border: none; font-weight: bold; cursor: pointer; display: none; border-radius: 10px; box-shadow: 0 5px 0 #b38f00; }
+        button#restart:active { transform: translateY(5px); box-shadow: none; }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="score-container">
         <div id="score">00000</div>
-        
-        <div id="ui-layer">
-            <h1 id="menu-title">Славянский Забег</h1>
-            <p id="menu-subtitle">Выбери героя, чтобы начать</p>
-            <div class="char-grid" id="char-selection"></div>
-            <button id="restart-btn" onclick="resetGame()">ИГРАТЬ СНОВА</button>
-        </div>
+        <div id="highscore">РЕКОРД: 00000</div>
     </div>
-    
-    <div style="display:none;">
-        <img id="bg-img" src="bg.png">
+    <div id="ui-layer">
+        <h1 id="title">СЛАВЯНСКИЙ ЗАБЕГ</h1>
+        <div class="char-grid" id="char-selection"></div>
+        <button id="restart" onclick="resetGame()">ИГРАТЬ СНОВА</button>
     </div>
+</div>
 
 <script>
-    // --- ЗВУКИ ---
-    // Создаем объекты аудио
-    const soundMusic = new Audio('music.mp3');
-    const soundJump = new Audio('jump.mp3');
-    const soundDie = new Audio('die.mp3');
-
-    // Настройки звука
-    soundMusic.loop = true; // Музыка играет по кругу
-    soundMusic.volume = 0.4; // Громкость фона (40%)
-    soundJump.volume = 0.6;
-    soundDie.volume = 0.8;
-
-    // --- КОНФИГУРАЦИЯ ПЕРСОНАЖЕЙ ---
-    const characters = [
-        { id: 'eva', name: 'Ева', src: 'eva.png', obs: 'eva_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
-        { id: 'volodya', name: 'Володя', src: 'volodya.png', obs: 'volodya_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
-        { id: 'gavriil', name: 'Гавриил', src: 'gavriil.png', obs: 'gm_obs.png', cols: 3, rows: 3, runRow: 0, jumpRow: 2 },
-        { id: 'kvek', name: 'Квек', src: 'kvek.png', obs: 'volodya_obs.png', cols: 3, rows: 3, runRow: 0, jumpRow: 2 },
-        { id: 'fedor', name: 'Федор', src: 'fedor.png', obs: 'volodya_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
-        { id: 'mikhail', name: 'Михаил', src: 'mikhail.png', obs: 'gm_obs.png', cols: 3, rows: 3, runRow: 0, jumpRow: 2 },
-        // Заглушка для Георгия (замени на реальный файл, если есть)
-        { id: 'georgiy', name: 'Георгий', src: 'georgiy.png', obs: 'georgiy_obs.png', cols: 3, rows: 2, runRow: 0, jumpRow: 1 },
-    ];
-
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const uiLayer = document.getElementById('ui-layer');
-    const charGrid = document.getElementById('char-selection');
-    const restartBtn = document.getElementById('restart-btn');
-    const menuTitle = document.getElementById('menu-title');
-    const menuSubtitle = document.getElementById('menu-subtitle');
-    const scoreEl = document.getElementById('score');
-
-    let gameSpeed = 6; let gravity = 0.6; let score = 0;
-    let isGameOver = false; let isPlaying = false;
     
-    let player = {
-        y: 0, velocityY: 0, state: 'running',
-        width: 70, height: 70,
-        sprite: new Image(), frameIndex: 0, animTimer: 0,
-        cols: 3, rows: 2, runRow: 0, jumpRow: 1
+    // Звуки
+    const sfxJump = new Audio('jump.mp3');
+    const sfxDie = new Audio('die.mp3');
+    const music = new Audio('music.mp3');
+    music.loop = true;
+
+    // Персонажи
+    const characters = [
+        { id: 'eva', name: 'Ева', src: 'eva.png', obs: 'eva_obs.png' },
+        { id: 'volodya', name: 'Володя', src: 'volodya.png', obs: 'volodya_obs.png' },
+        { id: 'fedor', name: 'Федор', src: 'fedor.png', obs: 'fedor_obs.png' },
+        { id: 'kvek', name: 'Квек', src: 'kvek.png', obs: 'kvek_obs.png' },
+        { id: 'master', name: 'Мастер', src: 'master.png', obs: 'master_obs.png' },
+        { id: 'georgiy', name: 'Георгий', src: 'georgiy.png', obs: 'georgiy_obs.png' }
+    ];
+
+    let isPlaying = false;
+    let score = 0;
+    let highscore = localStorage.getItem('slavic_highscore') || 0;
+    let gameSpeed = 7; 
+    let bgX = 0;
+    let groundY = 0;
+    const bgImg = new Image(); bgImg.src = 'bg.png';
+
+    const player = {
+        x: 100, y: 0, w: 500, h: 500, 
+        velocityY: 0, gravity: 0.8, 
+        jumpPower: -23, isJumping: false,
+        sprite: new Image(),
+        frameX: 0, frameY: 0, timer: 0
     };
 
-    let obstacles = []; let obstacleImg = new Image();
-    let bgImg = document.getElementById('bg-img'); let bgX = 0;
-    let groundY;
+    let obstacles = [];
+    const obsImg = new Image();
 
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        groundY = canvas.height - 100;
+        groundY = canvas.height - 550; 
+        player.y = groundY;
     }
     window.addEventListener('resize', resize);
     resize();
 
     function initMenu() {
-        charGrid.innerHTML = '';
+        const grid = document.getElementById('char-selection');
+        document.getElementById('highscore').innerText = "РЕКОРД: " + Math.floor(highscore).toString().padStart(5, '0');
         characters.forEach(char => {
-            let btn = document.createElement('div');
-            btn.className = 'char-btn';
-            btn.innerHTML = `<div class="char-btn-img-box"><img src="${char.src}"></div><span>${char.name}</span>`;
-            btn.onclick = () => startGame(char);
-            charGrid.appendChild(btn);
+            const div = document.createElement('div');
+            div.className = 'char-btn';
+            div.innerHTML = `<img src="${char.src}"><span>${char.name}</span>`;
+            div.onclick = () => startGame(char);
+            grid.appendChild(div);
         });
     }
 
-    function startGame(charData) {
-        // Запуск музыки (браузер разрешает это, так как был клик)
-        soundMusic.currentTime = 0;
-        soundMusic.play().catch(e => console.log("Автоплей заблокирован браузером"));
-
-        player.sprite.src = charData.src;
-        player.cols = charData.cols;
-        player.rows = charData.rows;
-        player.runRow = charData.runRow;
-        player.jumpRow = charData.jumpRow;
-        obstacleImg.src = charData.obs;
-
-        player.y = groundY - player.height;
-        player.velocityY = 0;
-        player.state = 'running';
-        obstacles = []; score = 0; gameSpeed = 6; isGameOver = false; isPlaying = true;
-
-        uiLayer.style.display = 'none'; 
-        restartBtn.style.display = 'none'; 
-        charGrid.style.display = 'none';
-        scoreEl.style.display = 'block';
-        
-        loop();
+    function startGame(char) {
+        player.sprite.src = char.src;
+        obsImg.src = char.obs;
+        isPlaying = true;
+        score = 0;
+        gameSpeed = 7;
+        obstacles = [];
+        document.getElementById('ui-layer').style.display = 'none';
+        document.getElementById('score-container').style.display = 'block';
+        music.play();
+        animate();
     }
 
     function resetGame() {
-        // Останавливаем звук проигрыша, если он еще идет
-        soundDie.pause();
-        soundDie.currentTime = 0;
-
-        uiLayer.style.display = 'flex'; charGrid.style.display = 'grid';
-        menuTitle.innerText = "Славянский Забег"; 
-        menuTitle.style.color = "#ffcc00";
-        menuSubtitle.style.display = "block";
-        restartBtn.style.display = 'none';
-    }
-
-    function gameOver() {
-        isGameOver = true; isPlaying = false;
-        
-        // Звуки
-        soundMusic.pause(); // Остановить музыку
-        soundDie.play();    // Звук удара
-
-        uiLayer.style.display = 'flex'; charGrid.style.display = 'none';
-        menuTitle.innerText = "ПОТРАЧЕНО\nСчет: " + Math.floor(score);
-        menuTitle.style.color = "red"; 
-        menuSubtitle.style.display = "none";
-        restartBtn.style.display = 'block';
+        location.reload(); 
     }
 
     function jump() {
-        if (!isPlaying || isGameOver) return;
-        if (player.state !== 'jumping') {
-            player.velocityY = -14;
-            player.state = 'jumping';
-            player.frameIndex = 0; 
-            player.animTimer = 0;
-            
-            // Звук прыжка
-            soundJump.currentTime = 0; // Сброс, чтобы можно было быстро нажимать
-            soundJump.play();
+        if (!player.isJumping && isPlaying) {
+            player.velocityY = player.jumpPower;
+            player.isJumping = true;
+            player.frameY = 1; 
+            player.frameX = 0;
+            sfxJump.currentTime = 0;
+            sfxJump.play();
         }
     }
 
-    document.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') jump(); });
-    document.addEventListener('touchstart', (e) => { jump(); e.preventDefault(); }, {passive: false});
-    document.addEventListener('click', jump);
+    window.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'ArrowUp') jump(); });
+    window.addEventListener('touchstart', jump);
 
-    function loop() {
+    function animate() {
         if (!isPlaying) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        score += 0.1; gameSpeed += 0.0015;
-        scoreEl.innerText = Math.floor(score).toString().padStart(5, '0');
 
-        // Фон
-        let bgRatio = bgImg.width / bgImg.height;
-        let bgDrawHeight = canvas.height; let bgDrawWidth = bgDrawHeight * bgRatio;
-        bgX -= gameSpeed * 0.5; if (bgX <= -bgDrawWidth) bgX = 0;
-        ctx.drawImage(bgImg, bgX, 0, bgDrawWidth, bgDrawHeight);
-        ctx.drawImage(bgImg, bgX + bgDrawWidth, 0, bgDrawWidth, bgDrawHeight);
+        // ФОН
+        const bgWidth = canvas.height * (bgImg.width / bgImg.height);
+        bgX -= gameSpeed * 0.4;
+        if (bgX <= -bgWidth) bgX = 0;
+        ctx.drawImage(bgImg, bgX, 0, bgWidth, canvas.height);
+        ctx.drawImage(bgImg, bgX + bgWidth, 0, bgWidth, canvas.height);
 
-        // Игрок
-        player.velocityY += gravity;
+        // ФИЗИКА
+        player.velocityY += player.gravity;
         player.y += player.velocityY;
-        if (player.y > groundY - player.height) {
-            player.y = groundY - player.height;
+
+        if (player.y > groundY) {
+            player.y = groundY;
             player.velocityY = 0;
-            if (player.state === 'jumping') {
-                 player.state = 'running';
-                 player.frameIndex = 0;
+            if (player.isJumping) {
+                player.isJumping = false;
+                player.frameY = 0;
             }
         }
 
-        player.animTimer++;
-        if (player.animTimer > 6) {
-            player.frameIndex++;
-            player.animTimer = 0;
+        player.timer++;
+        if (player.timer % 8 === 0) {
+            player.frameX++;
+            if (player.frameX > 2) player.frameX = 0;
         }
 
-        let currentRow;
-        if (player.state === 'running') {
-            currentRow = player.runRow;
-            player.frameIndex = player.frameIndex % player.cols;
-        } else {
-            currentRow = player.jumpRow;
-            if (player.frameIndex >= player.cols) player.frameIndex = player.cols - 1;
+        ctx.drawImage(player.sprite, 
+            player.frameX * 100, player.frameY * 100, 100, 100,
+            player.x, player.y, player.w, player.h
+        );
+
+        // ГЕНЕРАЦИЯ ПРЕПЯТСТВИЙ (частота зависит от скорости)
+        let spawnRate = Math.max(60, 120 - Math.floor(gameSpeed * 2));
+        if (player.timer % spawnRate === 0) {
+            obstacles.push({ x: canvas.width, y: groundY + 50, w: 450, h: 450 });
         }
 
-        let spriteW = player.sprite.width / player.cols;
-        let spriteH = player.sprite.height / player.rows;
-        let srcX = player.frameIndex * spriteW;
-        let srcY = currentRow * spriteH;
+        obstacles.forEach((obs, index) => {
+            obs.x -= gameSpeed;
+            ctx.drawImage(obsImg, obs.x, obs.y, obs.w, obs.h);
 
-        ctx.drawImage(player.sprite, srcX, srcY, spriteW, spriteH, 50, player.y, player.width, player.height);
-
-        // Препятствия
-        if (Math.random() < 0.015 && obstacles.length < 2) {
-             let lastObs = obstacles[obstacles.length - 1];
-             if (!lastObs || (canvas.width - lastObs.x > 400)) { // Увеличил дистанцию для честности
-                obstacles.push({ x: canvas.width, y: groundY - 55, w: 55, h: 55 });
-             }
-        }
-        for (let i = 0; i < obstacles.length; i++) {
-            let obs = obstacles[i]; obs.x -= gameSpeed;
-            ctx.drawImage(obstacleImg, obs.x, obs.y, obs.w, obs.h);
-            
-            if (50 < obs.x + obs.w - 20 && 50 + player.width - 20 > obs.x &&
-                player.y < obs.y + obs.h - 15 && player.y + player.height - 10 > obs.y) {
-                gameOver();
+            // ХИТБОКС
+            const p = 110; // Отступ для честности
+            if (player.x + p < obs.x + obs.w - p &&
+                player.x + player.w - p > obs.x + p &&
+                player.y + p < obs.y + obs.h - p &&
+                player.y + player.h - p > obs.y + p) {
+                endGame();
             }
-            if (obs.x + obs.w < 0) { obstacles.shift(); i--; }
-        }
 
-        if (!isGameOver) requestAnimationFrame(loop);
+            if (obs.x + obs.w < -500) obstacles.splice(index, 1);
+        });
+
+        // УСКОРЕНИЕ И СЧЕТ
+        score += 0.1;
+        gameSpeed += 0.002; // Игра плавно ускоряется каждую секунду
+        
+        document.getElementById('score').innerText = Math.floor(score).toString().padStart(5, '0');
+
+        requestAnimationFrame(animate);
     }
+
+    function endGame() {
+        isPlaying = false;
+        music.pause();
+        sfxDie.play();
+
+        // Проверка рекорда
+        if (score > highscore) {
+            highscore = score;
+            localStorage.setItem('slavic_highscore', highscore);
+        }
+
+        document.getElementById('ui-layer').style.display = 'flex';
+        document.getElementById('title').innerText = "ПОТРАЧЕНО";
+        document.getElementById('char-selection').style.display = 'none';
+        document.getElementById('restart').style.display = 'block';
+        document.getElementById('highscore').innerText = "РЕКОРД: " + Math.floor(highscore).toString().padStart(5, '0');
+    }
+
     initMenu();
 </script>
 </body>
