@@ -382,12 +382,15 @@
                 this.x = 100;
                 this.y = canvasHeight - groundHeight - this.height;
                 
-                // Физика
-                this.dy = 0;
-                this.jumpForce = canvasHeight * 0.027; // Сила прыжка зависит от экрана
-                this.gravity = canvasHeight * 0.0015;
-                this.originalY = this.y;
-                this.isJumping = false;
+                // --- ВНУТРИ class Player ---
+// Настройки физики (усиленные)
+this.dy = 0;
+// Мы увеличили коэффициент с 0.027 до 0.035 для более высокого прыжка
+this.jumpForce = canvasHeight * 0.035; 
+// Мы увеличили гравитацию с 0.0015 до 0.0018, чтобы персонаж быстрее возвращался вниз
+this.gravity = canvasHeight * 0.0018; 
+this.originalY = this.y;
+this.isJumping = false;
 
                 // Анимация
                 this.frameIndex = 0;
